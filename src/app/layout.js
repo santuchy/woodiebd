@@ -3,6 +3,7 @@ import "./globals.css";
 import NavBar from "./components/NavBar";
 import Banner from "./components/Banner";
 import CategorySection from "./components/CategorySection";
+import NewArrivals from "./components/NewArrivals";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,6 +29,7 @@ export default function RootLayout({ children }) {
         <NavBar></NavBar>
         <Banner></Banner>
         <CategorySection></CategorySection>
+        <NewArrivals></NewArrivals>
         {children}
       </body>
     </html>
