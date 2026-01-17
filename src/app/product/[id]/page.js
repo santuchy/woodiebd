@@ -200,13 +200,11 @@ export default function ProductDetailsPage() {
                       </Link>
                     </div>
 
-                    <div className="flex items-center gap-3 pt-1">
+                    <div className="items-center gap-3 pt-1">
                       <button className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200">
                         <Heart className="h-5 w-5 text-slate-700" />
                       </button>
-                      <button className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200">
-                        <Share2 className="h-5 w-5 text-slate-700" />
-                      </button>
+                      
                     </div>
                   </div>
 

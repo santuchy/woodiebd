@@ -93,7 +93,7 @@ export default function Navbar() {
             <Link href="/" className="py-2 hover:text-slate-900">
               Home
             </Link>
-            <Link href="/" className="py-2 hover:text-slate-900">
+            <Link href="/allproducts" className="py-2 hover:text-slate-900">
               All Product
             </Link>
             <Link href="/" className="py-2 hover:text-slate-900">
