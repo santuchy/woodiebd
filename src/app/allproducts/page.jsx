@@ -306,9 +306,9 @@ function ProductCard({ item }) {
         </div>
 
         <div className="mt-4 space-y-2">
-          <button className="w-full rounded-md bg-[#785E4C] py-2 text-[12px] font-semibold text-white hover:opacity-95">
+          <Link href={`/checkout?product=${item.id}`} className="w-full inline-flex justify-center rounded-md bg-[#785E4C] py-2 text-[12px] font-semibold text-white hover:opacity-95">
             Buy Now
-          </button>
+          </Link>
           <button className="w-full rounded-md border border-[#785E4C] py-2 text-[12px] font-semibold text-[#785E4C] hover:bg-[#785E4C] hover:text-white">
             Add To Cart
           </button>

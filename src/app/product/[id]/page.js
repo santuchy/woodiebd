@@ -265,9 +265,10 @@ export default function ProductDetailsPage() {
               {/* bottom button */}
               <div className="mt-auto">
                 <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <button className="h-12 rounded-lg bg-[#785E4C] font-semibold text-white hover:opacity-95">
+                  <Link href={`/checkout?product=${product.id}&qty=${qty}`}
+                  className="w-full justify-center rounded-md bg-[#785E4C]  font-semibold text-white hover:opacity-95">
                     Buy Now
-                  </button>
+                  </Link>
                   <button className="h-12 rounded-lg bg-[#D09200] font-semibold text-white hover:opacity-95">
                     Add To Cart
                   </button>
