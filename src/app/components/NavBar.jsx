@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Search,
-  ShoppingCart,
   User,
   ChevronDown,
   Facebook,
@@ -12,9 +11,13 @@ import {
   Youtube,
   MessageCircle,
   Music2,
+  ShoppingBag,
 } from "lucide-react";
+import { useCart } from "../context/CartContext";
+
 
 export default function Navbar() {
+  const { openCart, count } = useCart();
   const [openCat, setOpenCat] = useState(false);
 
   return (
@@ -50,9 +53,18 @@ export default function Navbar() {
           {/* Right Actions */}
           <div className="flex items-center gap-4">
             {/* Cart */}
-            <IconWithBadge count={0} label="Cart">
-              <ShoppingCart className="h-6 w-6 text-white" />
-            </IconWithBadge>
+            <button
+        onClick={openCart}
+        className="relative flex h-10 w-10 items-center justify-center"
+        aria-label="Cart"
+      >
+        <ShoppingBag className="h-6 w-6 text-white" />
+        {count > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+            {count}
+          </span>
+        )}
+      </button>
 
             {/* User icon*/}
             <button
@@ -78,7 +90,6 @@ export default function Navbar() {
         <div className="mx-auto flex h-[52px] max-w-7xl items-center justify-between px-4">
           {/* Left nav links */}
           <nav className="flex items-center gap-6 text-[14px] text-slate-700">
-            {/* Categories dropdown */}
             <div className="relative">
               <button
                 type="button"

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Heart } from "lucide-react";
+import { useCart } from "../context/CartContext";
 
 const PRODUCTS = [
   {
@@ -114,7 +115,7 @@ export default function ProductsPage() {
   const [appliedMax, setAppliedMax] = useState("");
 
   const [selectedCats, setSelectedCats] = useState([]);
-  const [sort, setSort] = useState("price-asc"); // price-asc | price-desc
+  const [sort, setSort] = useState("price-asc");
 
   const toggleCat = (cat) => {
     setSelectedCats((prev) =>
@@ -227,7 +228,7 @@ export default function ProductsPage() {
               </div>
             </div>
           </aside>
-                
+
           {/* right side content */}
           <div className="space-y-4">
             {/* top bar */}
@@ -263,6 +264,8 @@ export default function ProductsPage() {
 }
 
 function ProductCard({ item }) {
+  const { addToCart } = useCart();
+
   return (
     <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
       {/* product pic */}
@@ -297,19 +300,23 @@ function ProductCard({ item }) {
         </h3>
 
         <div className="mt-3 flex items-center justify-center gap-2 text-sm">
-          <span className="font-semibold text-[#7B5E4D]">
-            BDT {item.price}
-          </span>
-          <span className="text-slate-400 line-through">
-            BDT {item.oldPrice}
-          </span>
+          <span className="font-semibold text-[#7B5E4D]">BDT {item.price}</span>
+          <span className="text-slate-400 line-through">BDT {item.oldPrice}</span>
         </div>
 
         <div className="mt-4 space-y-2">
-          <Link href={`/checkout?product=${item.id}`} className="w-full inline-flex justify-center rounded-md bg-[#785E4C] py-2 text-[12px] font-semibold text-white hover:opacity-95">
+          <Link
+            href={`/checkout?product=${item.id}`}
+            className="w-full inline-flex justify-center rounded-md bg-[#785E4C] py-2 text-[12px] font-semibold text-white hover:opacity-95"
+          >
             Buy Now
           </Link>
-          <button className="w-full rounded-md border border-[#785E4C] py-2 text-[12px] font-semibold text-[#785E4C] hover:bg-[#785E4C] hover:text-white">
+
+          <button
+            type="button"
+            onClick={() => addToCart(item)}
+            className="w-full rounded-md border border-[#785E4C] py-2 text-[12px] font-semibold text-[#785E4C] hover:bg-[#785E4C] hover:text-white"
+          >
             Add To Cart
           </button>
         </div>

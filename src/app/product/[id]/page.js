@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Heart, Share2, Minus, Plus, Phone, MessageCircle } from "lucide-react";
+import { Heart, Minus, Plus, Phone, MessageCircle } from "lucide-react";
+import { useCart } from "../../context/CartContext";
 
 const ITEMS = [
   {
@@ -131,6 +132,8 @@ const ITEMS = [
 const toOffLabel = (text) => (text ? text.toUpperCase() : "");
 
 export default function ProductDetailsPage() {
+  const { addToCart } = useCart();
+
   const params = useParams();
   const id = params?.id;
 
@@ -204,14 +207,8 @@ export default function ProductDetailsPage() {
                       <button className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200">
                         <Heart className="h-5 w-5 text-slate-700" />
                       </button>
-                      
                     </div>
                   </div>
-
-                  <p>
-                    <span className="font-semibold text-slate-900">Brand</span> :{" "}
-                    <span className="text-slate-500">—</span>
-                  </p>
 
                   <p>
                     <span className="font-semibold text-slate-900">Status</span> :{" "}
@@ -265,11 +262,18 @@ export default function ProductDetailsPage() {
               {/* bottom button */}
               <div className="mt-auto">
                 <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Link href={`/checkout?product=${product.id}&qty=${qty}`}
-                  className="w-full justify-center rounded-md bg-[#785E4C]  font-semibold text-white hover:opacity-95">
+                  <Link
+                    href={`/checkout?product=${product.id}&qty=${qty}`}
+                    className="w-full justify-center rounded-md bg-[#785E4C] font-semibold text-white hover:opacity-95 inline-flex items-center"
+                  >
                     Buy Now
                   </Link>
-                  <button className="h-12 rounded-lg bg-[#D09200] font-semibold text-white hover:opacity-95">
+
+                  <button
+                    type="button"
+                    onClick={() => addToCart({ ...product, qty })}
+                    className="h-12 rounded-lg bg-[#D09200] font-semibold text-white hover:opacity-95"
+                  >
                     Add To Cart
                   </button>
                 </div>

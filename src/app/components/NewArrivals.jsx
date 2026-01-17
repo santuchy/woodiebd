@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { Heart } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCart } from "../context/CartContext";
 
 const ITEMS = [
   {
@@ -90,13 +92,10 @@ export default function NewArrivals() {
   return (
     <section className="w-full bg-[#F3F6FF] py-10">
       <div className="mx-auto max-w-7xl px-4">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold text-slate-900">New Arrivals</h2>
-          
-        </div>
+        <h2 className="mb-6 text-2xl font-semibold text-slate-900">
+          New Arrivals
+        </h2>
 
-        {/* Grid */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
           {ITEMS.map((item) => (
             <ProductCard key={item.id} item={item} />
@@ -108,58 +107,55 @@ export default function NewArrivals() {
 }
 
 function ProductCard({ item }) {
+  const router = useRouter();
+  const { addToCart } = useCart();
+
   return (
     <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
-      {/* Image area (click -> product details) */}
       <Link
         href={`/product/${item.id}`}
-        className="relative block h-[230px] w-full overflow-hidden bg-slate-100"
+        className="relative block h-[230px] w-full overflow-hidden"
       >
-        {/* Discount */}
         <span className="absolute left-3 top-3 z-10 rounded-full bg-[#7B5E4D] px-3 py-1 text-xs font-semibold text-white">
           {item.discount}
         </span>
 
-        {/* Heart */}
         <button
-          type="button"
           onClick={(e) => e.preventDefault()}
-          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 hover:bg-white"
-          aria-label="Wishlist"
+          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white"
         >
-          <Heart className="h-4 w-4 text-slate-800" />
+          <Heart className="h-4 w-4" />
         </button>
 
-        {/* Image */}
-        <img
-          src={item.img}
-          alt={item.title}
-          className="h-full w-full object-cover"
-        />
+        <img src={item.img} className="h-full w-full object-cover" />
       </Link>
 
       {/* Content */}
       <div className="px-4 pb-4 pt-3">
-        <h3 className="min-h-[42px] text-center text-[14px] font-semibold leading-snug text-slate-900">
+        <h3 className="min-h-[42px] text-center text-gray-900 text-sm font-semibold">
           {item.title}
         </h3>
 
-        {/* Price */}
-        <div className="mt-3 flex items-center justify-center gap-2 text-sm">
-          <span className="font-semibold text-[#7B5E4D]">
-            BDT {item.price}
-          </span>
-          <span className="text-slate-400 line-through">
+        <div className="mt-2 flex justify-center gap-2 text-sm">
+          <span className="font-semibold text-[#7B5E4D]">BDT {item.price}</span>
+          <span className="line-through text-slate-400">
             BDT {item.oldPrice}
           </span>
         </div>
 
         {/* Buttons */}
         <div className="mt-4 space-y-2">
-          <Link href={`/checkout?product=${item.id}`} className="w-full inline-flex justify-center rounded-md bg-[#785E4C] py-2 text-[12px] font-semibold text-white hover:opacity-95">
+          <Link
+            href={`/checkout?product=${item.id}`}
+            className="w-full inline-flex justify-center rounded-md bg-[#785E4C] py-2 text-[12px] font-semibold text-white hover:opacity-95"
+          >
             Buy Now
           </Link>
-          <button className="w-full rounded-md border border-[#785E4C] py-2 text-[12px] font-semibold text-[#785E4C] hover:bg-[#785E4C] hover:text-white">
+
+          <button
+            onClick={() => addToCart(item)}
+            className="w-full rounded-md border border-[#785E4C] py-2 text-xs font-semibold text-[#785E4C] hover:bg-[#785e4c] hover:text-white"
+          >
             Add To Cart
           </button>
         </div>
