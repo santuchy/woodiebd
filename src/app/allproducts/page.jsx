@@ -1,114 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Heart } from "lucide-react";
 import { useCart } from "../context/CartContext";
 
-const PRODUCTS = [
-  {
-    id: "kitchen-decor",
-    discount: "24% off",
-    title: "Customized Wooden Kitchen Decor",
-    price: 650,
-    oldPrice: 850,
-    img: "/product/11.jpg",
-    category: "Wooden Kitchen Decor",
-  },
-  {
-    id: "key-holder",
-    discount: "14% off",
-    title: "Customized Wooden Key Holder",
-    price: 1200,
-    oldPrice: 1400,
-    img: "/product/12.jpg",
-    category: "Wooden Key Holder",
-  },
-  {
-    id: "money-box",
-    discount: "14% off",
-    title: "Customized Wooden Money Saving Box",
-    price: 1500,
-    oldPrice: 1750,
-    img: "/product/13.jpg",
-    category: "Wooden Money Saving Box",
-  },
-  {
-    id: "chopping-board",
-    discount: "14% off",
-    title: "Customized Wooden Chopping Board",
-    price: 1800,
-    oldPrice: 2100,
-    img: "/product/14.jpg",
-    category: "Wooden Chopping Board",
-  },
-  {
-    id: "photo-frame-1",
-    discount: "13% off",
-    title: "Customized Wooden Photo Frame",
-    price: 1050,
-    oldPrice: 1200,
-    img: "/product/15.jpg",
-    category: "Wooden Photo Frame",
-  },
-  {
-    id: "photo-frame-2",
-    discount: "21% off",
-    title: "Customized Wooden Photo Frame",
-    price: 950,
-    oldPrice: 1200,
-    img: "/product/16.jpg",
-    category: "Wooden Photo Frame",
-  },
-  {
-    id: "bookmark-1",
-    discount: "25% off",
-    title: "Customized Wooden Bookmark",
-    price: 150,
-    oldPrice: 200,
-    img: "/product/17.jpg",
-    category: "Wooden Bookmark",
-  },
-  {
-    id: "bookmark-2",
-    discount: "25% off",
-    title: "Customized Wooden Bookmark",
-    price: 150,
-    oldPrice: 200,
-    img: "/product/18.jpg",
-    category: "Wooden Bookmark",
-  },
-  {
-    id: "tray-1",
-    discount: "15% off",
-    title: "Customized Wooden Tea/Serving Tray",
-    price: 850,
-    oldPrice: 1000,
-    img: "/product/19.jpg",
-    category: "Wooden Tea/Serving Tray",
-  },
-  {
-    id: "tray-2",
-    discount: "18% off",
-    title: "Customized Wooden Tea/Serving Tray",
-    price: 820,
-    oldPrice: 999,
-    img: "/product/20.jpg",
-    category: "Wooden Tea/Serving Tray",
-  },
-];
-
-const ALL_CATEGORIES = [
-  "Wooden Tea/Serving Tray",
-  "Wooden Bookmark",
-  "Wooden Photo Frame",
-  "Wooden Chopping Board",
-  "Wooden Money Saving Box",
-  "Wooden Key Holder",
-  "Wooden Kitchen Decor",
-];
-
 export default function ProductsPage() {
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingCats, setLoadingCats] = useState(true);
+
   const [min, setMin] = useState("");
   const [max, setMax] = useState("");
   const [appliedMin, setAppliedMin] = useState("");
@@ -116,6 +19,130 @@ export default function ProductsPage() {
 
   const [selectedCats, setSelectedCats] = useState([]);
   const [sort, setSort] = useState("price-asc");
+
+  useEffect(() => {
+    const loadAllProducts = async () => {
+      try {
+        setLoadingProducts(true);
+
+        // 1) first page to read meta
+        const firstRes = await fetch("/api/products?page=1&limit=100", {
+          cache: "no-store",
+        });
+
+        if (!firstRes.ok) {
+          setProducts([]);
+          return;
+        }
+
+        const firstJson = await firstRes.json();
+        const firstArr = Array.isArray(firstJson?.data?.data)
+          ? firstJson.data.data
+          : [];
+
+        const meta = firstJson?.data?.meta || {};
+        const total = Number(meta?.total ?? firstArr.length);
+        const limit = Number(meta?.limit ?? 10);
+        const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+
+        let all = [...firstArr];
+
+        // 2) fetch remaining pages
+        if (totalPages > 1) {
+          const promises = [];
+          for (let p = 2; p <= totalPages; p++) {
+            promises.push(
+              fetch(`/api/products?page=${p}&limit=${limit}`, {
+                cache: "no-store",
+              })
+                .then((r) => (r.ok ? r.json() : null))
+                .catch(() => null)
+            );
+          }
+
+          const results = await Promise.all(promises);
+          results.forEach((j) => {
+            const arr = Array.isArray(j?.data?.data) ? j.data.data : [];
+            all.push(...arr);
+          });
+        }
+
+        const normalized = all.map((p) => {
+          const id = p?.path || p?._id;
+
+          const img =
+            Array.isArray(p?.imageURLs) && p.imageURLs.length > 0
+              ? p.imageURLs[0]
+              : "/product/11.jpg";
+
+          const category =
+            Array.isArray(p?.category) && p.category.length > 0
+              ? p.category[0]
+              : "";
+
+          return {
+            id: String(id),
+            discount: p?.discount ? `${p.discount}% off` : "",
+            title: p?.name || "Product",
+            price: Number(p?.salePrice ?? 0),
+            oldPrice: Number(p?.productPrice ?? 0),
+            img,
+            category,
+          };
+        });
+
+        setProducts(normalized);
+      } catch (e) {
+        console.error("Products fetch error:", e);
+        setProducts([]);
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+
+    const loadCategories = async () => {
+      try {
+        setLoadingCats(true);
+
+        const res = await fetch("/api/categories", { cache: "no-store" });
+        if (!res.ok) {
+          setCategories([]);
+          return;
+        }
+
+        const json = await res.json();
+
+        const arr = Array.isArray(json?.data) ? json.data : [];
+
+        const cats = arr
+          .filter((c) => c?.status === true)
+          .map((c) => c?.parentCategory)
+          .filter(Boolean);
+
+        setCategories(Array.from(new Set(cats)));
+      } catch (e) {
+        console.error("Category fetch error:", e);
+        setCategories([]);
+      } finally {
+        setLoadingCats(false);
+      }
+    };
+
+    loadAllProducts();
+    loadCategories();
+  }, []);
+
+  const ALL_CATEGORIES = useMemo(() => {
+    const productCats = new Set(
+      products.map((p) => p.category).filter(Boolean)
+    );
+
+    const filtered = categories.filter((c) => productCats.has(c));
+
+    if (filtered.length > 0) return filtered;
+
+    return Array.from(productCats);
+  }, [categories, products]);
 
   const toggleCat = (cat) => {
     setSelectedCats((prev) =>
@@ -138,7 +165,7 @@ export default function ProductsPage() {
   };
 
   const filtered = useMemo(() => {
-    let list = [...PRODUCTS];
+    let list = [...products];
 
     // category filter
     if (selectedCats.length > 0) {
@@ -160,7 +187,16 @@ export default function ProductsPage() {
     if (sort === "price-desc") list.sort((a, b) => b.price - a.price);
 
     return list;
-  }, [selectedCats, appliedMin, appliedMax, sort]);
+  }, [products, selectedCats, appliedMin, appliedMax, sort]);
+
+  useEffect(() => {
+    if (selectedCats.length === 0) return;
+    const setAll = new Set(ALL_CATEGORIES);
+    const next = selectedCats.filter((c) => setAll.has(c));
+    if (next.length !== selectedCats.length) setSelectedCats(next);
+  }, [ALL_CATEGORIES, selectedCats]);
+
+  const loading = loadingProducts || loadingCats;
 
   return (
     <section className="w-full bg-[#F3F6FF] py-8">
@@ -211,20 +247,21 @@ export default function ProductsPage() {
               </h3>
 
               <div className="mt-4 space-y-3">
-                {ALL_CATEGORIES.map((cat) => (
-                  <label
-                    key={cat}
-                    className="flex cursor-pointer items-center gap-3 text-sm text-slate-700"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedCats.includes(cat)}
-                      onChange={() => toggleCat(cat)}
-                      className="h-4 w-4 accent-[#785E4C]"
-                    />
-                    {cat}
-                  </label>
-                ))}
+                {!loadingCats &&
+                  ALL_CATEGORIES.map((cat) => (
+                    <label
+                      key={cat}
+                      className="flex cursor-pointer items-center gap-3 text-sm text-slate-700"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedCats.includes(cat)}
+                        onChange={() => toggleCat(cat)}
+                        className="h-4 w-4 accent-[#785E4C]"
+                      />
+                      {cat}
+                    </label>
+                  ))}
               </div>
             </div>
           </aside>
@@ -234,7 +271,7 @@ export default function ProductsPage() {
             {/* top bar */}
             <div className="flex flex-col gap-3 rounded-lg border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-semibold text-slate-700">
-                Total {filtered.length} items found here
+                Total {loading ? 0 : filtered.length} items found here
               </p>
 
               <div className="flex items-center gap-2">
@@ -252,9 +289,8 @@ export default function ProductsPage() {
 
             {/* products grid */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {filtered.map((item) => (
-                <ProductCard key={item.id} item={item} />
-              ))}
+              {!loading &&
+                filtered.map((item) => <ProductCard key={item.id} item={item} />)}
             </div>
           </div>
         </div>
@@ -273,9 +309,11 @@ function ProductCard({ item }) {
         href={`/product/${item.id}`}
         className="relative block h-[240px] w-full overflow-hidden bg-slate-100"
       >
-        <span className="absolute left-3 top-3 z-10 rounded-full bg-[#7B5E4D] px-3 py-1 text-xs font-semibold text-white">
-          {item.discount}
-        </span>
+        {item.discount ? (
+          <span className="absolute left-3 top-3 z-10 rounded-full bg-[#7B5E4D] px-3 py-1 text-xs font-semibold text-white">
+            {item.discount}
+          </span>
+        ) : null}
 
         <button
           type="button"

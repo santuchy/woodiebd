@@ -1,145 +1,105 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Heart, Minus, Plus, Phone, MessageCircle } from "lucide-react";
 import { useCart } from "../../context/CartContext";
 
-const ITEMS = [
-  {
-    id: "photo-frame-2",
-    discount: "21% off",
-    title: "Customized Wooden Photo Frame",
-    price: 950,
-    oldPrice: 1200,
-    img: "/product/16.jpg",
-    sku: "frame-16",
-    categoryName: "Wooden Photo Frame",
-    categoryLink: "/category/wooden-photo-frame",
-    status: "In Stock",
-  },
-  {
-    id: "key-holder",
-    discount: "14% off",
-    title: "Customized Wooden Key Holder",
-    price: 1200,
-    oldPrice: 1400,
-    img: "/product/12.jpg",
-    sku: "holder-31",
-    categoryName: "Wooden Key Holder",
-    categoryLink: "/category/wooden-key-holder",
-    status: "In Stock",
-  },
-  {
-    id: "kitchen-decor",
-    discount: "24% off",
-    title: "Customized Wooden Kitchen Decor",
-    price: 650,
-    oldPrice: 850,
-    img: "/product/11.jpg",
-    sku: "kitchen-11",
-    categoryName: "Wooden Kitchen Decor",
-    categoryLink: "/category/wooden-kitchen-decor",
-    status: "In Stock",
-  },
-  {
-    id: "money-box",
-    discount: "14% off",
-    title: "Customized Wooden Money Saving Box",
-    price: 1500,
-    oldPrice: 1750,
-    img: "/product/13.jpg",
-    sku: "money-13",
-    categoryName: "Wooden Money Box",
-    categoryLink: "/category/wooden-money-box",
-    status: "In Stock",
-  },
-  {
-    id: "chopping-board",
-    discount: "14% off",
-    title: "Customized Wooden Chopping Board",
-    price: 1800,
-    oldPrice: 2100,
-    img: "/product/14.jpg",
-    sku: "board-14",
-    categoryName: "Wooden Chopping Board",
-    categoryLink: "/category/wooden-chopping-board",
-    status: "In Stock",
-  },
-  {
-    id: "photo-frame-1",
-    discount: "13% off",
-    title: "Customized Wooden Photo Frame",
-    price: 1050,
-    oldPrice: 1200,
-    img: "/product/15.jpg",
-    sku: "frame-15",
-    categoryName: "Wooden Photo Frame",
-    categoryLink: "/category/wooden-photo-frame",
-    status: "In Stock",
-  },
-  {
-    id: "bookmark-1",
-    discount: "25% off",
-    title: "Customized Wooden Bookmark",
-    price: 150,
-    oldPrice: 200,
-    img: "/product/17.jpg",
-    sku: "mark-17",
-    categoryName: "Wooden Bookmark",
-    categoryLink: "/category/wooden-bookmark",
-    status: "In Stock",
-  },
-  {
-    id: "bookmark-2",
-    discount: "25% off",
-    title: "Customized Wooden Bookmark",
-    price: 150,
-    oldPrice: 200,
-    img: "/product/18.jpg",
-    sku: "mark-18",
-    categoryName: "Wooden Bookmark",
-    categoryLink: "/category/wooden-bookmark",
-    status: "In Stock",
-  },
-  {
-    id: "tray-1",
-    discount: "15% off",
-    title: "Customized Wooden Tea/Serving Tray",
-    price: 850,
-    oldPrice: 1000,
-    img: "/product/19.jpg",
-    sku: "tray-19",
-    categoryName: "Wooden Serving Tray",
-    categoryLink: "/category/wooden-serving-tray",
-    status: "In Stock",
-  },
-  {
-    id: "tray-2",
-    discount: "18% off",
-    title: "Customized Wooden Tea/Serving Tray",
-    price: 820,
-    oldPrice: 999,
-    img: "/product/20.jpg",
-    sku: "tray-20",
-    categoryName: "Wooden Serving Tray",
-    categoryLink: "/category/wooden-serving-tray",
-    status: "In Stock",
-  },
-];
-
-const toOffLabel = (text) => (text ? text.toUpperCase() : "");
+const toOffLabel = (text) => (text ? String(text).toUpperCase() : "");
 
 export default function ProductDetailsPage() {
   const { addToCart } = useCart();
 
   const params = useParams();
-  const id = params?.id;
+  const id = params?.id; // this is product "path" (slug) from API
 
-  const product = useMemo(() => ITEMS.find((p) => p.id === id), [id]);
+  const [apiProduct, setApiProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const [qty, setQty] = useState(1);
+
+  useEffect(() => {
+    const loadProduct = async () => {
+      if (!id) return;
+
+      try {
+        setLoading(true);
+
+        // ✅ fetch from your proxy (store-id handled server-side)
+        const res = await fetch("/api/products", { cache: "no-store" });
+        if (!res.ok) {
+          setApiProduct(null);
+          return;
+        }
+
+        const json = await res.json();
+        const arr = Array.isArray(json?.data?.data) ? json.data.data : [];
+
+        // ✅ match by path (slug) first, fallback _id
+        const found = arr.find((p) => p?.path === id || p?._id === id) || null;
+        setApiProduct(found);
+      } catch (e) {
+        console.error("Product details fetch error:", e);
+        setApiProduct(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProduct();
+  }, [id]);
+
+  // ✅ normalize API product -> UI shape (keep design unchanged)
+  const product = useMemo(() => {
+    if (!apiProduct) return null;
+
+    const img =
+      Array.isArray(apiProduct?.imageURLs) && apiProduct.imageURLs.length > 0
+        ? apiProduct.imageURLs[0]
+        : "/product/11.jpg";
+
+    const categoryName =
+      Array.isArray(apiProduct?.category) && apiProduct.category.length > 0
+        ? apiProduct.category[0]
+        : "";
+
+    const categoryPath =
+      Array.isArray(apiProduct?.categoryPath) && apiProduct.categoryPath.length > 0
+        ? apiProduct.categoryPath[0]
+        : "";
+
+    return {
+      id: apiProduct?.path || apiProduct?._id, // used in checkout url/cart
+      discount:
+        typeof apiProduct?.discount === "number" || typeof apiProduct?.discount === "string"
+          ? `${apiProduct.discount}% off`
+          : "",
+      title: apiProduct?.name || "Product",
+      price: Number(apiProduct?.salePrice ?? 0),
+      oldPrice: Number(apiProduct?.productPrice ?? 0),
+      img,
+      sku: apiProduct?.sku || "",
+      categoryName,
+      categoryLink: categoryPath ? `/category/${categoryPath}` : "#",
+      status: apiProduct?.stock ? "In Stock" : "Out of Stock",
+    };
+  }, [apiProduct]);
+
+  const dec = () => setQty((p) => (p > 1 ? p - 1 : 1));
+  const inc = () => setQty((p) => p + 1);
+
+  if (loading) {
+    return (
+      <section className="w-full bg-white py-10">
+        <div className="mx-auto w-full max-w-6xl px-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-7">
+            <p className="text-slate-700">Loading...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (!product) {
     return (
@@ -160,9 +120,6 @@ export default function ProductDetailsPage() {
       </section>
     );
   }
-
-  const dec = () => setQty((p) => (p > 1 ? p - 1 : 1));
-  const inc = () => setQty((p) => p + 1);
 
   return (
     <section className="w-full bg-white py-10">
@@ -212,7 +169,13 @@ export default function ProductDetailsPage() {
 
                   <p>
                     <span className="font-semibold text-slate-900">Status</span> :{" "}
-                    <span className="font-semibold text-green-600">{product.status}</span>
+                    <span
+                      className={`font-semibold ${
+                        product.status === "In Stock" ? "text-green-600" : "text-red-600"
+                      }`}
+                    >
+                      {product.status}
+                    </span>
                   </p>
                 </div>
 
@@ -222,9 +185,11 @@ export default function ProductDetailsPage() {
                     TK {product.price}.00
                   </div>
                   <div className="text-slate-500 line-through">TK {product.oldPrice}.00</div>
-                  <span className="rounded-full bg-red-500 px-4 py-1 text-xs font-bold text-white">
-                    {toOffLabel(product.discount)}
-                  </span>
+                  {product.discount ? (
+                    <span className="rounded-full bg-red-500 px-4 py-1 text-xs font-bold text-white">
+                      {toOffLabel(product.discount)}
+                    </span>
+                  ) : null}
                 </div>
 
                 {/* qty*/}
