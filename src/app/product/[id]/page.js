@@ -12,7 +12,7 @@ export default function ProductDetailsPage() {
   const { addToCart } = useCart();
 
   const params = useParams();
-  const id = params?.id; // this is product "path" (slug) from API
+  const id = params?.id;
 
   const [apiProduct, setApiProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -26,19 +26,19 @@ export default function ProductDetailsPage() {
       try {
         setLoading(true);
 
-        // ✅ fetch from your proxy (store-id handled server-side)
-        const res = await fetch("/api/products", { cache: "no-store" });
+        const res = await fetch(`/api/product/path/${id}`, {
+          cache: "no-store",
+        });
+
         if (!res.ok) {
           setApiProduct(null);
           return;
         }
 
         const json = await res.json();
-        const arr = Array.isArray(json?.data?.data) ? json.data.data : [];
 
-        // ✅ match by path (slug) first, fallback _id
-        const found = arr.find((p) => p?.path === id || p?._id === id) || null;
-        setApiProduct(found);
+        const prod = json?.data || null;
+        setApiProduct(prod);
       } catch (e) {
         console.error("Product details fetch error:", e);
         setApiProduct(null);
@@ -50,7 +50,6 @@ export default function ProductDetailsPage() {
     loadProduct();
   }, [id]);
 
-  // ✅ normalize API product -> UI shape (keep design unchanged)
   const product = useMemo(() => {
     if (!apiProduct) return null;
 
@@ -70,7 +69,7 @@ export default function ProductDetailsPage() {
         : "";
 
     return {
-      id: apiProduct?.path || apiProduct?._id, // used in checkout url/cart
+      id: apiProduct?.path || apiProduct?._id,
       discount:
         typeof apiProduct?.discount === "number" || typeof apiProduct?.discount === "string"
           ? `${apiProduct.discount}% off`
@@ -127,11 +126,7 @@ export default function ProductDetailsPage() {
         <div className="flex flex-col items-stretch gap-10 md:flex-row">
           <div className="w-full rounded-2xl border border-slate-200 bg-white p-6 md:w-1/2">
             <div className="h-[560px] w-full overflow-hidden rounded-xl bg-slate-100">
-              <img
-                src={product.img}
-                alt={product.title}
-                className="h-full w-full object-cover"
-              />
+              <img src={product.img} alt={product.title} className="h-full w-full object-cover" />
             </div>
           </div>
 

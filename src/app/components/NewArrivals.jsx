@@ -1,94 +1,88 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCart } from "../context/CartContext";
 
-const ITEMS = [
-  {
-    id: "kitchen-decor",
-    discount: "24% off",
-    title: "Customized Wooden Kitchen Decor",
-    price: 650,
-    oldPrice: 850,
-    img: "/product/11.jpg",
-  },
-  {
-    id: "key-holder",
-    discount: "14% off",
-    title: "Customized Wooden Key Holder",
-    price: 1200,
-    oldPrice: 1400,
-    img: "/product/12.jpg",
-  },
-  {
-    id: "money-box",
-    discount: "14% off",
-    title: "Customized Wooden Money Saving Box",
-    price: 1500,
-    oldPrice: 1750,
-    img: "/product/13.jpg",
-  },
-  {
-    id: "chopping-board",
-    discount: "14% off",
-    title: "Customized Wooden Chopping Board",
-    price: 1800,
-    oldPrice: 2100,
-    img: "/product/14.jpg",
-  },
-  {
-    id: "photo-frame-1",
-    discount: "13% off",
-    title: "Customized Wooden Photo Frame",
-    price: 1050,
-    oldPrice: 1200,
-    img: "/product/15.jpg",
-  },
-  {
-    id: "photo-frame-2",
-    discount: "21% off",
-    title: "Customized Wooden Photo Frame",
-    price: 950,
-    oldPrice: 1200,
-    img: "/product/16.jpg",
-  },
-  {
-    id: "bookmark-1",
-    discount: "25% off",
-    title: "Customized Wooden Bookmark",
-    price: 150,
-    oldPrice: 200,
-    img: "/product/17.jpg",
-  },
-  {
-    id: "bookmark-2",
-    discount: "25% off",
-    title: "Customized Wooden Bookmark",
-    price: 150,
-    oldPrice: 200,
-    img: "/product/18.jpg",
-  },
-  {
-    id: "tray-1",
-    discount: "15% off",
-    title: "Customized Wooden Tea/Serving Tray",
-    price: 850,
-    oldPrice: 1000,
-    img: "/product/19.jpg",
-  },
-  {
-    id: "tray-2",
-    discount: "18% off",
-    title: "Customized Wooden Tea/Serving Tray",
-    price: 820,
-    oldPrice: 999,
-    img: "/product/20.jpg",
-  },
-];
-
 export default function NewArrivals() {
+  const [items, setItems] = useState([]);
+
+  useEffect(() => {
+    const loadAllProducts = async () => {
+      try {
+        // 1) first page (for meta)
+        const firstRes = await fetch("/api/products?page=1&limit=100", {
+          cache: "no-store",
+        });
+
+        if (!firstRes.ok) {
+          setItems([]);
+          return;
+        }
+
+        const firstJson = await firstRes.json();
+        const firstArr = Array.isArray(firstJson?.data?.data)
+          ? firstJson.data.data
+          : [];
+
+        const meta = firstJson?.data?.meta || {};
+        const total = Number(meta?.total ?? firstArr.length);
+        const limit = Number(meta?.limit ?? 10);
+        const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+
+        let all = [...firstArr];
+
+        // 2) remaining pages
+        if (totalPages > 1) {
+          const promises = [];
+          for (let p = 2; p <= totalPages; p++) {
+            promises.push(
+              fetch(`/api/products?page=${p}&limit=${limit}`, {
+                cache: "no-store",
+              })
+                .then((r) => (r.ok ? r.json() : null))
+                .catch(() => null)
+            );
+          }
+
+          const results = await Promise.all(promises);
+          results.forEach((j) => {
+            const arr = Array.isArray(j?.data?.data) ? j.data.data : [];
+            all.push(...arr);
+          });
+        }
+
+        // ✅ map to UI shape (no design change)
+        const normalized = all.map((p) => {
+          const id = p?.path || p?._id;
+
+          const img =
+            Array.isArray(p?.imageURLs) && p.imageURLs.length > 0
+              ? p.imageURLs[0]
+              : "/product/11.jpg";
+
+          return {
+            id: String(id),
+            discount: p?.discount ? `${p.discount}% off` : "",
+            title: p?.name || "Product",
+            price: Number(p?.salePrice ?? 0),
+            oldPrice: Number(p?.productPrice ?? 0),
+            img,
+          };
+        });
+
+        setItems(normalized);
+      } catch (e) {
+        console.error("NewArrivals products fetch error:", e);
+        setItems([]);
+      }
+    };
+
+    loadAllProducts();
+  }, []);
+
   return (
     <section className="w-full bg-[#F3F6FF] py-10">
       <div className="mx-auto max-w-7xl px-4">
@@ -97,7 +91,7 @@ export default function NewArrivals() {
         </h2>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
-          {ITEMS.map((item) => (
+          {items.map((item) => (
             <ProductCard key={item.id} item={item} />
           ))}
         </div>
