@@ -5,19 +5,6 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { useCart } from "../context/CartContext";
 
-const PRODUCTS = [
-  { id: "kitchen-decor", title: "Customized Wooden Kitchen Decor", price: 650, oldPrice: 850, img: "/product/11.jpg" },
-  { id: "key-holder", title: "Customized Wooden Key Holder", price: 1200, oldPrice: 1400, img: "/product/12.jpg" },
-  { id: "money-box", title: "Customized Wooden Money Saving Box", price: 1500, oldPrice: 1750, img: "/product/13.jpg" },
-  { id: "chopping-board", title: "Customized Wooden Chopping Board", price: 1800, oldPrice: 2100, img: "/product/14.jpg" },
-  { id: "photo-frame-1", title: "Customized Wooden Photo Frame", price: 1050, oldPrice: 1200, img: "/product/15.jpg" },
-  { id: "photo-frame-2", title: "Customized Wooden Photo Frame", price: 950, oldPrice: 1200, img: "/product/16.jpg" },
-  { id: "bookmark-1", title: "Customized Wooden Bookmark", price: 150, oldPrice: 200, img: "/product/17.jpg" },
-  { id: "bookmark-2", title: "Customized Wooden Bookmark", price: 150, oldPrice: 200, img: "/product/18.jpg" },
-  { id: "tray-1", title: "Customized Wooden Tea/Serving Tray", price: 850, oldPrice: 1000, img: "/product/19.jpg" },
-  { id: "tray-2", title: "Customized Wooden Tea/Serving Tray", price: 820, oldPrice: 999, img: "/product/20.jpg" },
-];
-
 const AREAS = [
   { value: "inside_dhaka", label: "Inside Dhaka City (ঢাকা সিটির ভিতর)", fee: 100 },
   { value: "outside_dhaka", label: "Outside Dhaka City (সাভার, আশুলিয়া, কেরানীগঞ্জ)", fee: 130 },
@@ -31,12 +18,10 @@ export default function CheckoutPage() {
 
   const { items: cartItems, inc, dec, removeItem } = useCart();
 
-  const buyNowProduct = useMemo(() => {
-    if (!productId) return null;
-    return PRODUCTS.find((p) => p.id === productId) || null;
-  }, [productId]);
+  const [buyNowProduct, setBuyNowProduct] = useState(null);
+  const [loadingBuyNow, setLoadingBuyNow] = useState(false);
 
-  const isBuyNow = !!buyNowProduct;
+  const isBuyNow = !!productId;
 
   // buy now qty
   const [buyQty, setBuyQty] = useState(1);
@@ -47,6 +32,58 @@ export default function CheckoutPage() {
     }
   }, [isBuyNow, qtyFromUrl]);
 
+  useEffect(() => {
+    const loadBuyNow = async () => {
+      if (!productId) {
+        setBuyNowProduct(null);
+        return;
+      }
+
+      try {
+        setLoadingBuyNow(true);
+
+        const res = await fetch(`/api/product/path/${encodeURIComponent(productId)}`, {
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          setBuyNowProduct(null);
+          return;
+        }
+
+        const json = await res.json();
+        const p = json?.data || null;
+
+        if (!p) {
+          setBuyNowProduct(null);
+          return;
+        }
+
+        const img =
+          Array.isArray(p?.imageURLs) && p.imageURLs.length > 0
+            ? p.imageURLs[0]
+            : "/product/11.jpg";
+
+        const normalized = {
+          id: String(p?.path || p?._id || productId),
+          title: p?.name || "Product",
+          price: Number(p?.salePrice ?? 0),
+          oldPrice: Number(p?.productPrice ?? 0),
+          img,
+        };
+
+        setBuyNowProduct(normalized);
+      } catch (e) {
+        console.error("Buy now product fetch error:", e);
+        setBuyNowProduct(null);
+      } finally {
+        setLoadingBuyNow(false);
+      }
+    };
+
+    loadBuyNow();
+  }, [productId]);
+
   const [area, setArea] = useState(AREAS[0].value);
 
   const selectedArea = useMemo(() => AREAS.find((a) => a.value === area), [area]);
@@ -54,6 +91,7 @@ export default function CheckoutPage() {
   // list for UI
   const checkoutItems = useMemo(() => {
     if (isBuyNow) {
+      if (!buyNowProduct) return [];
       return [
         {
           id: buyNowProduct.id,
@@ -66,18 +104,24 @@ export default function CheckoutPage() {
         },
       ];
     }
+
     // cart items
-    return cartItems.map((it) => ({ ...it, mode: "cart" }));
+    return cartItems.map((it) => ({
+      ...it,
+      img: it?.img || "/product/11.jpg",
+      oldPrice: typeof it?.oldPrice === "number" ? it.oldPrice : it.price,
+      mode: "cart",
+    }));
   }, [isBuyNow, buyNowProduct, buyQty, cartItems]);
 
   const subtotal = useMemo(() => {
-    return checkoutItems.reduce((sum, it) => sum + it.price * it.qty, 0);
+    return checkoutItems.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.qty || 0), 0);
   }, [checkoutItems]);
 
   const deliveryFee = selectedArea?.fee || 0;
   const total = subtotal + deliveryFee;
 
-  // qty handlers (buy now / cart both)
+  // qty handlers
   const decLocal = () => setBuyQty((p) => (p > 1 ? p - 1 : 1));
   const incLocal = () => setBuyQty((p) => p + 1);
 
@@ -101,7 +145,9 @@ export default function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">Mobile Number</label>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    Mobile Number
+                  </label>
                   <input
                     type="text"
                     placeholder="Mobile Number"
@@ -111,7 +157,9 @@ export default function CheckoutPage() {
               </div>
 
               <div className="mt-5">
-                <label className="mb-2 block text-sm font-medium text-slate-700">Select your area</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Select your area
+                </label>
 
                 <select
                   value={area}
@@ -127,7 +175,9 @@ export default function CheckoutPage() {
               </div>
 
               <div className="mt-5">
-                <label className="mb-2 block text-sm font-medium text-slate-700">Your Address</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Your Address
+                </label>
                 <input
                   type="text"
                   placeholder="Enter your full address (Road, Area, District, Postal Code)"
@@ -136,7 +186,9 @@ export default function CheckoutPage() {
               </div>
 
               <div className="mt-5">
-                <label className="mb-2 block text-sm font-medium text-slate-700">Your Note (Optional)</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Your Note (Optional)
+                </label>
                 <textarea
                   placeholder="Note..."
                   rows={4}
@@ -169,7 +221,11 @@ export default function CheckoutPage() {
             <div className="rounded-lg border border-gray-300 bg-white p-6">
               <h3 className="text-sm font-bold text-slate-900">Product List</h3>
 
-              {checkoutItems.length === 0 ? (
+              {isBuyNow && loadingBuyNow ? (
+                <div className="mt-4 rounded-md border border-gray-300 p-3 text-center text-sm text-slate-500">
+                  Loading...
+                </div>
+              ) : checkoutItems.length === 0 ? (
                 <div className="mt-4 rounded-md border border-gray-300 p-3 text-center text-sm text-slate-500">
                   Cart is empty
                 </div>
@@ -260,6 +316,7 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
+          {/* end */}
         </div>
       </div>
     </section>
