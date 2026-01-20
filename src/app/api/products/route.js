@@ -22,6 +22,8 @@ export async function GET(req) {
       cache: "no-store",
     });
 
+    
+
     const data = await res.text();
 
     return new Response(data, {
