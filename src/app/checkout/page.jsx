@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { Suspense, useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { useCart } from "../context/CartContext";
@@ -12,6 +12,14 @@ const AREAS = [
 ];
 
 export default function CheckoutPage() {
+  return (
+    <Suspense fallback={null}>
+      <CheckoutInner />
+    </Suspense>
+  );
+}
+
+function CheckoutInner() {
   const sp = useSearchParams();
   const productId = sp.get("product");
   const qtyFromUrl = sp.get("qty");
