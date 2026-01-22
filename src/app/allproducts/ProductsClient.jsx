@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import { Heart } from "lucide-react";
 import { useCart } from "../context/CartContext";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 // category text
 function slugify(text) {
@@ -35,6 +35,8 @@ export default function ProductsClient({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+
 
   const [products] = useState(initialProducts);
   const [categories] = useState(initialCategories);
@@ -92,7 +94,8 @@ export default function ProductsClient({
     else params.set("categoryP", slugs.join(","));
 
     const qs = params.toString();
-    router.replace(qs ? `?${qs}` : "?", { scroll: false });
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCats]);
 
