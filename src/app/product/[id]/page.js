@@ -9,8 +9,6 @@ function getBaseUrlSafe() {
   return "http://localhost:3000";
 }
 
-
-
 async function loadProductByPath(baseUrl, id) {
   try {
     const res = await fetch(`${baseUrl}/api/product/path/${id}`, {

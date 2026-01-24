@@ -4,22 +4,34 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Heart, Minus, Plus, Phone, MessageCircle } from "lucide-react";
 import { useCart } from "../../context/CartContext";
+import ReactImageMagnifier from "simple-image-magnifier/react";
 
 const toOffLabel = (text) => (text ? String(text).toUpperCase() : "");
+
+function normalizeAttributes(attributesObj) {
+  if (!attributesObj || typeof attributesObj !== "object") return [];
+  return Object.entries(attributesObj)
+    .map(([name, values]) => ({
+      name,
+      values: Array.isArray(values) ? values : [],
+    }))
+    .filter((x) => x.name && x.values.length > 0);
+}
 
 export default function ProductDetailsClient({ apiProduct }) {
   const { addToCart } = useCart();
 
   const [qty, setQty] = useState(1);
   const [tab, setTab] = useState("description");
+  const [selectedAttrs, setSelectedAttrs] = useState({});
 
   const product = useMemo(() => {
     if (!apiProduct) return null;
 
-    const img =
+    const images =
       Array.isArray(apiProduct?.imageURLs) && apiProduct.imageURLs.length > 0
-        ? apiProduct.imageURLs[0]
-        : "/product/11.jpg";
+        ? apiProduct.imageURLs
+        : ["/product/11.jpg"];
 
     const categoryName =
       Array.isArray(apiProduct?.category) && apiProduct.category.length > 0
@@ -27,69 +39,118 @@ export default function ProductDetailsClient({ apiProduct }) {
         : "";
 
     const categoryPath =
-      Array.isArray(apiProduct?.categoryPath) && apiProduct.categoryPath.length > 0
+      Array.isArray(apiProduct?.categoryPath) &&
+      apiProduct.categoryPath.length > 0
         ? apiProduct.categoryPath[0]
         : "";
 
     return {
       id: apiProduct?.path || apiProduct?._id,
-      discount:
-        typeof apiProduct?.discount === "number" || typeof apiProduct?.discount === "string"
-          ? `${apiProduct.discount}% off`
-          : "",
       title: apiProduct?.name || "Product",
+      sku: apiProduct?.sku || "",
       price: Number(apiProduct?.salePrice ?? 0),
       oldPrice: Number(apiProduct?.productPrice ?? 0),
-      img,
-      sku: apiProduct?.sku || "",
+      discount:
+        typeof apiProduct?.discount === "number" ||
+        typeof apiProduct?.discount === "string"
+          ? `${apiProduct.discount}% OFF`
+          : "",
+      status: apiProduct?.stock ? "In Stock" : "Out of Stock",
       categoryName,
       categoryLink: categoryPath ? `/category/${categoryPath}` : "#",
-      status: apiProduct?.stock ? "In Stock" : "Out of Stock",
       descriptionHtml: apiProduct?.description || "",
-      reviewCount: Array.isArray(apiProduct?.review) ? apiProduct.review.length : 0,
+      reviewCount: Array.isArray(apiProduct?.review)
+        ? apiProduct.review.length
+        : 0,
       youtube: apiProduct?.youtube || "",
+      images,
+      attributes: normalizeAttributes(apiProduct?.attributes),
     };
   }, [apiProduct]);
+
+  const [imgActive, setImgActive] = useState(0);
 
   const dec = () => setQty((p) => (p > 1 ? p - 1 : 1));
   const inc = () => setQty((p) => p + 1);
 
-  if (!product) {
-    return (
-      <section className="w-full bg-[#F3F6FF] py-16">
-        <div className="mx-auto max-w-3xl px-4 text-center">
-          <h1 className="text-2xl font-bold text-slate-900">Product not found</h1>
-          <Link
-            href="/"
-            className="mt-6 inline-flex rounded-md bg-[#785E4C] px-5 py-2 text-white"
-          >
-            Back to Home
-          </Link>
-        </div>
-      </section>
-    );
-  }
+  const setAttr = (name, value) => {
+    setSelectedAttrs((p) => ({ ...p, [name]: value }));
+  };
+
+  const addToCartWithAttrs = () => {
+    addToCart({
+      ...product,
+      qty,
+      selectedAttributes: selectedAttrs,
+    });
+  };
+
+  const CARD_H = 640; // outer card height
+  const IMG_W = 520; // magnifier width
+  const IMG_H = 520; // magnifier height
 
   return (
     <section className="w-full bg-white py-10">
       <div className="mx-auto w-full max-w-6xl px-4">
         {/* top section */}
         <div className="flex flex-col items-stretch gap-10 md:flex-row">
-          <div className="w-full rounded-2xl border border-slate-200 bg-white p-6 md:w-1/2">
-            <div className="h-[560px] w-full overflow-hidden rounded-xl bg-slate-100">
-              <img src={product.img} alt={product.title} className="h-full w-full object-cover" />
+          {/* LEFT CARD */}
+          <div
+            className="w-full rounded-2xl border border-slate-200 bg-white p-6 md:w-1/2"
+            style={{ height: CARD_H }}
+          >
+            <div className="flex h-full flex-col">
+              {/* image area */}
+              <div className="flex flex-1 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
+                <ReactImageMagnifier
+                  srcPreview={product.images[imgActive]}
+                  srcOriginal={product.images[imgActive]}
+                  width={IMG_W}
+                  height={IMG_H}
+                  objectFit="cover"
+                  className="bg-slate-100 rounded-xl"
+                />
+              </div>
+
+              {/* thumbnail below */}
+              <div className="mt-4 flex gap-3">
+                {product.images.slice(0, 6).map((src, i) => (
+                  <button
+                    key={src + i}
+                    type="button"
+                    onClick={() => setImgActive(i)}
+                    className={`h-16 w-16 overflow-hidden rounded-md border bg-white ${
+                      imgActive === i ? "border-red-500" : "border-slate-200"
+                    }`}
+                    aria-label={`Preview ${i + 1}`}
+                  >
+                    <img
+                      src={src}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* right card */}
-          <div className="w-full rounded-2xl border border-slate-200 bg-white p-7 md:w-1/2">
-            <div className="flex h-[560px] flex-col">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900">{product.title}</h1>
+          {/* RIGHT CARD */}
+          <div
+            className="w-full rounded-2xl border border-slate-200 bg-white p-7 md:w-1/2 overflow-hidden"
+            style={{ height: CARD_H }}
+          >
+            <div className="flex h-full flex-col">
+              {/* this part can scroll if content grows */}
+              <div className="min-h-0 flex-1 overflow-auto pr-1">
+                <h1 className="text-3xl font-bold text-slate-900">
+                  {product.title}
+                </h1>
 
                 <div className="mt-6 space-y-3 text-[15px] text-slate-700">
                   <p>
-                    <span className="font-semibold text-slate-900">SKU</span> : {product.sku}
+                    <span className="font-semibold text-slate-900">SKU</span> :{" "}
+                    {product.sku}
                   </p>
 
                   <div className="flex items-start justify-between gap-4">
@@ -106,7 +167,7 @@ export default function ProductDetailsClient({ apiProduct }) {
                       </Link>
                     </div>
 
-                    <div className="items-center gap-3 pt-1">
+                    <div className="flex items-center gap-3 pt-1">
                       <button className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200">
                         <Heart className="h-5 w-5 text-slate-700" />
                       </button>
@@ -114,10 +175,13 @@ export default function ProductDetailsClient({ apiProduct }) {
                   </div>
 
                   <p>
-                    <span className="font-semibold text-slate-900">Status</span> :{" "}
+                    <span className="font-semibold text-slate-900">Status</span>{" "}
+                    :{" "}
                     <span
                       className={`font-semibold ${
-                        product.status === "In Stock" ? "text-green-600" : "text-red-600"
+                        product.status === "In Stock"
+                          ? "text-green-600"
+                          : "text-red-600"
                       }`}
                     >
                       {product.status}
@@ -130,7 +194,11 @@ export default function ProductDetailsClient({ apiProduct }) {
                   <div className="text-4xl font-extrabold text-orange-600">
                     TK {product.price}.00
                   </div>
-                  <div className="text-slate-500 line-through">TK {product.oldPrice}.00</div>
+
+                  <div className="text-slate-500 line-through">
+                    TK {product.oldPrice}.00
+                  </div>
+
                   {product.discount ? (
                     <span className="rounded-full bg-red-500 px-4 py-1 text-xs font-bold text-white">
                       {toOffLabel(product.discount)}
@@ -138,7 +206,40 @@ export default function ProductDetailsClient({ apiProduct }) {
                   ) : null}
                 </div>
 
-                {/* qty*/}
+                {/* attributes */}
+                {product.attributes.length > 0 ? (
+                  <div className="mt-6 space-y-5">
+                    {product.attributes.map((attr) => (
+                      <div key={attr.name}>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {attr.name} :
+                        </p>
+
+                        <div className="mt-2 flex flex-wrap gap-3">
+                          {attr.values.map((val) => {
+                            const active = selectedAttrs[attr.name] === val;
+                            return (
+                              <button
+                                key={val}
+                                type="button"
+                                onClick={() => setAttr(attr.name, val)}
+                                className={`rounded-md border px-4 py-2 text-sm font-semibold transition ${
+                                  active
+                                    ? "border-red-500 text-red-500"
+                                    : "border-slate-300 text-slate-700 hover:border-slate-400"
+                                }`}
+                              >
+                                {val}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                {/* qty */}
                 <div className="mt-7 flex items-center gap-4">
                   <span className="text-sm font-semibold tracking-wide text-slate-900">
                     QUANTITY :
@@ -170,19 +271,19 @@ export default function ProductDetailsClient({ apiProduct }) {
                 <div className="mt-6 h-px w-full bg-slate-200" />
               </div>
 
-              {/* bottom button */}
-              <div className="mt-auto">
-                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* bottom buttons */}
+              <div className="pt-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Link
                     href={`/checkout?product=${product.id}&qty=${qty}`}
-                    className="w-full justify-center rounded-md bg-[#785E4C] font-semibold text-white hover:opacity-95 inline-flex items-center"
+                    className="w-full justify-center rounded-md bg-[#785E4C] font-semibold text-white hover:opacity-95 inline-flex h-12 items-center"
                   >
                     Buy Now
                   </Link>
 
                   <button
                     type="button"
-                    onClick={() => addToCart({ ...product, qty })}
+                    onClick={addToCartWithAttrs}
                     className="h-12 rounded-lg bg-[#D09200] font-semibold text-white hover:opacity-95"
                   >
                     Add To Cart
@@ -203,8 +304,8 @@ export default function ProductDetailsClient({ apiProduct }) {
           </div>
         </div>
 
-        {/* below section*/}
-        <div className="mt-10 rounded-2xl border text-gray-800 bg-white p-6">
+        {/* below section */}
+        <div className="mt-12 rounded-2xl border text-gray-800 bg-white p-6">
           {/* tabs */}
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
@@ -249,7 +350,8 @@ export default function ProductDetailsClient({ apiProduct }) {
               <div
                 className="prose max-w-none prose-p:my-2 prose-ul:my-2 prose-li:my-1"
                 dangerouslySetInnerHTML={{
-                  __html: product.descriptionHtml || "<p>No description found.</p>",
+                  __html:
+                    product.descriptionHtml || "<p>No description found.</p>",
                 }}
               />
             ) : null}
