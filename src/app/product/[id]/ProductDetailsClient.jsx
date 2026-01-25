@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Heart, Minus, Plus, Phone, MessageCircle } from "lucide-react";
 import { useCart } from "../../context/CartContext";
@@ -18,12 +18,64 @@ function normalizeAttributes(attributesObj) {
     .filter((x) => x.name && x.values.length > 0);
 }
 
+function getRequiredAttrNames(attributesObj) {
+  if (!attributesObj || typeof attributesObj !== "object") return [];
+  return Object.keys(attributesObj).filter(Boolean);
+}
+
+function findMatchingVariant(variants, requiredNames, selectedAttrs) {
+  if (!Array.isArray(variants) || variants.length === 0) return null;
+
+  // must select all required attributes
+  for (const n of requiredNames) {
+    if (!selectedAttrs?.[n]) return null;
+  }
+
+  return (
+    variants.find((v) => {
+      const vAttrs = v?.attributes || {};
+      return requiredNames.every(
+        (n) => String(vAttrs?.[n] || "") === String(selectedAttrs?.[n] || "")
+      );
+    }) || null
+  );
+}
+
+function buildDefaultSelectedAttrs(apiProduct) {
+  const required = getRequiredAttrNames(apiProduct?.attributes);
+  const firstVar = Array.isArray(apiProduct?.variant) ? apiProduct.variant[0] : null;
+  const vAttrs =
+    firstVar?.attributes && typeof firstVar.attributes === "object"
+      ? firstVar.attributes
+      : {};
+
+  const next = {};
+  required.forEach((k) => {
+    if (vAttrs?.[k]) next[k] = vAttrs[k];
+  });
+  return next;
+}
+
 export default function ProductDetailsClient({ apiProduct }) {
   const { addToCart } = useCart();
 
   const [qty, setQty] = useState(1);
   const [tab, setTab] = useState("description");
-  const [selectedAttrs, setSelectedAttrs] = useState({});
+
+  const requiredAttrNames = useMemo(
+    () => getRequiredAttrNames(apiProduct?.attributes),
+    [apiProduct]
+  );
+
+  // ✅ safe initial selection
+  const [selectedAttrs, setSelectedAttrs] = useState(() =>
+    buildDefaultSelectedAttrs(apiProduct)
+  );
+
+  // ✅ if user opens another product page, reset default attrs for that product
+  useEffect(() => {
+    setSelectedAttrs(buildDefaultSelectedAttrs(apiProduct));
+  }, [apiProduct]);
 
   const product = useMemo(() => {
     if (!apiProduct) return null;
@@ -39,8 +91,7 @@ export default function ProductDetailsClient({ apiProduct }) {
         : "";
 
     const categoryPath =
-      Array.isArray(apiProduct?.categoryPath) &&
-      apiProduct.categoryPath.length > 0
+      Array.isArray(apiProduct?.categoryPath) && apiProduct.categoryPath.length > 0
         ? apiProduct.categoryPath[0]
         : "";
 
@@ -48,27 +99,60 @@ export default function ProductDetailsClient({ apiProduct }) {
       id: apiProduct?.path || apiProduct?._id,
       title: apiProduct?.name || "Product",
       sku: apiProduct?.sku || "",
-      price: Number(apiProduct?.salePrice ?? 0),
-      oldPrice: Number(apiProduct?.productPrice ?? 0),
-      discount:
-        typeof apiProduct?.discount === "number" ||
-        typeof apiProduct?.discount === "string"
+
+      // base (fallback)
+      basePrice: Number(apiProduct?.salePrice ?? 0),
+      baseOldPrice: Number(apiProduct?.productPrice ?? 0),
+      baseDiscount:
+        typeof apiProduct?.discount === "number" || typeof apiProduct?.discount === "string"
           ? `${apiProduct.discount}% OFF`
           : "",
+
       status: apiProduct?.stock ? "In Stock" : "Out of Stock",
       categoryName,
       categoryLink: categoryPath ? `/category/${categoryPath}` : "#",
+
       descriptionHtml: apiProduct?.description || "",
-      reviewCount: Array.isArray(apiProduct?.review)
-        ? apiProduct.review.length
-        : 0,
+      reviewCount: Array.isArray(apiProduct?.review) ? apiProduct.review.length : 0,
       youtube: apiProduct?.youtube || "",
+
       images,
       attributes: normalizeAttributes(apiProduct?.attributes),
+      variants: Array.isArray(apiProduct?.variant) ? apiProduct.variant : [],
     };
   }, [apiProduct]);
 
+  // ✅ prevent crash
+  const safeProduct = product || {
+    id: "",
+    title: "",
+    sku: "",
+    basePrice: 0,
+    baseOldPrice: 0,
+    baseDiscount: "",
+    status: "",
+    categoryName: "",
+    categoryLink: "#",
+    descriptionHtml: "",
+    reviewCount: 0,
+    youtube: "",
+    images: ["/product/11.jpg"],
+    attributes: [],
+    variants: [],
+  };
+
   const [imgActive, setImgActive] = useState(0);
+
+  // keep imgActive valid if images count changes
+  useEffect(() => {
+    setImgActive((p) => {
+      const max = (safeProduct.images?.length || 1) - 1;
+      if (p < 0) return 0;
+      if (p > max) return 0;
+      return p;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safeProduct.images?.length]);
 
   const dec = () => setQty((p) => (p > 1 ? p - 1 : 1));
   const inc = () => setQty((p) => p + 1);
@@ -77,17 +161,44 @@ export default function ProductDetailsClient({ apiProduct }) {
     setSelectedAttrs((p) => ({ ...p, [name]: value }));
   };
 
+  // ✅ active variant (safe)
+  const activeVariant = useMemo(() => {
+    return findMatchingVariant(
+      safeProduct.variants,
+      requiredAttrNames,
+      selectedAttrs
+    );
+  }, [safeProduct.variants, requiredAttrNames, selectedAttrs]);
+
+  // ✅ dynamic price from variant
+  const displayPrice = activeVariant
+    ? Number(activeVariant.salePrice ?? safeProduct.basePrice)
+    : safeProduct.basePrice;
+
+  const displayOldPrice = activeVariant
+    ? Number(activeVariant.productPrice ?? safeProduct.baseOldPrice)
+    : safeProduct.baseOldPrice;
+
+  const displayDiscount =
+    activeVariant && activeVariant.discount !== undefined && activeVariant.discount !== null
+      ? `${activeVariant.discount}% OFF`
+      : safeProduct.baseDiscount;
+
   const addToCartWithAttrs = () => {
     addToCart({
-      ...product,
+      ...safeProduct,
+      price: displayPrice,
+      oldPrice: displayOldPrice,
+      discount: displayDiscount,
       qty,
       selectedAttributes: selectedAttrs,
+      variantId: activeVariant?._id || null,
     });
   };
 
-  const CARD_H = 640; // outer card height
-  const IMG_W = 520; // magnifier width
-  const IMG_H = 520; // magnifier height
+  const CARD_H = 640;
+  const IMG_W = 520;
+  const IMG_H = 520;
 
   return (
     <section className="w-full bg-white py-10">
@@ -103,8 +214,8 @@ export default function ProductDetailsClient({ apiProduct }) {
               {/* image area */}
               <div className="flex flex-1 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
                 <ReactImageMagnifier
-                  srcPreview={product.images[imgActive]}
-                  srcOriginal={product.images[imgActive]}
+                  srcPreview={safeProduct.images[imgActive]}
+                  srcOriginal={safeProduct.images[imgActive]}
                   width={IMG_W}
                   height={IMG_H}
                   objectFit="cover"
@@ -114,7 +225,7 @@ export default function ProductDetailsClient({ apiProduct }) {
 
               {/* thumbnail below */}
               <div className="mt-4 flex gap-3">
-                {product.images.slice(0, 6).map((src, i) => (
+                {safeProduct.images.slice(0, 6).map((src, i) => (
                   <button
                     key={src + i}
                     type="button"
@@ -124,11 +235,7 @@ export default function ProductDetailsClient({ apiProduct }) {
                     }`}
                     aria-label={`Preview ${i + 1}`}
                   >
-                    <img
-                      src={src}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
+                    <img src={src} alt="" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -144,26 +251,26 @@ export default function ProductDetailsClient({ apiProduct }) {
               {/* this part can scroll if content grows */}
               <div className="min-h-0 flex-1 overflow-auto pr-1">
                 <h1 className="text-3xl font-bold text-slate-900">
-                  {product.title}
+                  {safeProduct.title}
                 </h1>
 
                 <div className="mt-6 space-y-3 text-[15px] text-slate-700">
                   <p>
                     <span className="font-semibold text-slate-900">SKU</span> :{" "}
-                    {product.sku}
+                    {safeProduct.sku}
                   </p>
 
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-semibold text-slate-900">Category:</p>
                       <Link
-                        href={product.categoryLink}
+                        href={safeProduct.categoryLink}
                         className="mt-1 inline-flex items-center gap-2 font-semibold text-purple-600 hover:underline"
                       >
                         <span className="inline-flex h-4 w-4 items-center justify-center rounded-sm border border-purple-600 text-[10px]">
                           ✓
                         </span>
-                        {product.categoryName}
+                        {safeProduct.categoryName}
                       </Link>
                     </div>
 
@@ -179,12 +286,12 @@ export default function ProductDetailsClient({ apiProduct }) {
                     :{" "}
                     <span
                       className={`font-semibold ${
-                        product.status === "In Stock"
+                        safeProduct.status === "In Stock"
                           ? "text-green-600"
                           : "text-red-600"
                       }`}
                     >
-                      {product.status}
+                      {safeProduct.status}
                     </span>
                   </p>
                 </div>
@@ -192,24 +299,24 @@ export default function ProductDetailsClient({ apiProduct }) {
                 {/* price row */}
                 <div className="mt-7 flex flex-wrap items-center gap-5">
                   <div className="text-4xl font-extrabold text-orange-600">
-                    TK {product.price}.00
+                    TK {displayPrice}.00
                   </div>
 
                   <div className="text-slate-500 line-through">
-                    TK {product.oldPrice}.00
+                    TK {displayOldPrice}.00
                   </div>
 
-                  {product.discount ? (
+                  {displayDiscount ? (
                     <span className="rounded-full bg-red-500 px-4 py-1 text-xs font-bold text-white">
-                      {toOffLabel(product.discount)}
+                      {toOffLabel(displayDiscount)}
                     </span>
                   ) : null}
                 </div>
 
                 {/* attributes */}
-                {product.attributes.length > 0 ? (
+                {safeProduct.attributes.length > 0 ? (
                   <div className="mt-6 space-y-5">
-                    {product.attributes.map((attr) => (
+                    {safeProduct.attributes.map((attr) => (
                       <div key={attr.name}>
                         <p className="text-sm font-semibold text-slate-900">
                           {attr.name} :
@@ -275,7 +382,7 @@ export default function ProductDetailsClient({ apiProduct }) {
               <div className="pt-6">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Link
-                    href={`/checkout?product=${product.id}&qty=${qty}`}
+                    href={`/checkout?product=${safeProduct.id}&qty=${qty}`}
                     className="w-full justify-center rounded-md bg-[#785E4C] font-semibold text-white hover:opacity-95 inline-flex h-12 items-center"
                   >
                     Buy Now
@@ -329,7 +436,7 @@ export default function ProductDetailsClient({ apiProduct }) {
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}
             >
-              Review ({product.reviewCount})
+              Review ({safeProduct.reviewCount})
             </button>
 
             <button
@@ -350,15 +457,14 @@ export default function ProductDetailsClient({ apiProduct }) {
               <div
                 className="prose max-w-none prose-p:my-2 prose-ul:my-2 prose-li:my-1"
                 dangerouslySetInnerHTML={{
-                  __html:
-                    product.descriptionHtml || "<p>No description found.</p>",
+                  __html: safeProduct.descriptionHtml || "<p>No description found.</p>",
                 }}
               />
             ) : null}
 
             {tab === "review" ? (
               <div className="text-slate-700">
-                {product.reviewCount > 0 ? (
+                {safeProduct.reviewCount > 0 ? (
                   <p>Reviews loaded from API (you can render them here).</p>
                 ) : (
                   <p>No reviews yet.</p>
@@ -368,11 +474,11 @@ export default function ProductDetailsClient({ apiProduct }) {
 
             {tab === "video" ? (
               <div className="text-slate-700">
-                {product.youtube ? (
+                {safeProduct.youtube ? (
                   <div className="aspect-video w-full overflow-hidden rounded-xl bg-slate-100">
                     <iframe
                       className="h-full w-full"
-                      src={product.youtube}
+                      src={safeProduct.youtube}
                       title="Product Video"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
