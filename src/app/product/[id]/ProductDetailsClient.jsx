@@ -67,12 +67,12 @@ export default function ProductDetailsClient({ apiProduct }) {
     [apiProduct]
   );
 
-  // ✅ safe initial selection
+  // safe initial selection
   const [selectedAttrs, setSelectedAttrs] = useState(() =>
     buildDefaultSelectedAttrs(apiProduct)
   );
 
-  // ✅ if user opens another product page, reset default attrs for that product
+  // if user opens another product page, reset default attrs for that product
   useEffect(() => {
     setSelectedAttrs(buildDefaultSelectedAttrs(apiProduct));
   }, [apiProduct]);
@@ -122,7 +122,7 @@ export default function ProductDetailsClient({ apiProduct }) {
     };
   }, [apiProduct]);
 
-  // ✅ prevent crash
+ 
   const safeProduct = product || {
     id: "",
     title: "",
@@ -161,7 +161,7 @@ export default function ProductDetailsClient({ apiProduct }) {
     setSelectedAttrs((p) => ({ ...p, [name]: value }));
   };
 
-  // ✅ active variant (safe)
+  // active variant
   const activeVariant = useMemo(() => {
     return findMatchingVariant(
       safeProduct.variants,
@@ -170,7 +170,7 @@ export default function ProductDetailsClient({ apiProduct }) {
     );
   }, [safeProduct.variants, requiredAttrNames, selectedAttrs]);
 
-  // ✅ dynamic price from variant
+  // dynamic price from variant
   const displayPrice = activeVariant
     ? Number(activeVariant.salePrice ?? safeProduct.basePrice)
     : safeProduct.basePrice;
